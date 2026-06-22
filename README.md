@@ -49,16 +49,15 @@ The application will start on `http://localhost:3000`
 ### Usage
 
 1. Open the application in your browser
-2. Click "Select Data Directory" and choose your `cards-database/data` folder
+2. Click "Select tcgdex repo" and choose your local copy
 3. Browse through series → sets → cards
 4. Click on any card to edit it
-5. Make your changes and click "Save" to write back to the file
+5. Make your changes and it will auto save
 6. Use the "Edit Set" button to modify set information
 7. Navigate back to edit series information
 
 ## Important Notes
 
-- **New Variant Format Only**: This editor only supports the new variant format (`Array<variant_detailed>`) with `thirdParty` IDs inside each variant. Cards using the old format will need to be migrated separately.
 - **Browser Requirements**: The File System Access API requires a secure context (HTTPS or localhost) and is currently supported in Chrome, Edge, and Opera.
 - **File Permissions**: When you first select a directory, the browser will ask for permission to read and write files. Grant this permission to enable saving changes.
 - **Backup**: It's recommended to backup your card database before making edits, as changes are written directly to the source files.
