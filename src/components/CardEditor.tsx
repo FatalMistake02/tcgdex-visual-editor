@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Card, Set, Types, SupportedLanguages } from '../types'
-import { ArrowLeft, Save, Plus, Trash2, Image as ImageIcon, Layout, ChevronRight, ChevronLeft } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Image as ImageIcon, Layout, ChevronRight, ChevronLeft } from 'lucide-react'
 import { VARIANT_TYPES, VARIANT_STAMPS, SUBTYPES, FOIL_TYPES, SIZES } from '../utils/parser'
 
 interface CardEditorProps {
@@ -17,16 +17,20 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
   const [editedCard, setEditedCard] = useState<Card>({ ...card })
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguages>('en')
 
-  // Autosave with debounce (in-memory only to avoid disk writes that trigger HMR reloads)
+  // Autosave with debounce: persist to disk when cardNumber exists, otherwise keep in-memory
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (!isNew) {
+      const cardNumber = (editedCard as any).cardNumber
+      if (cardNumber) {
+        onSave(editedCard, true)
+      } else {
+        // update in-memory only until cardNumber is assigned
         onSave(editedCard, false)
       }
     }, 2000) // Save after 2 seconds of inactivity
 
     return () => clearTimeout(timeoutId)
-  }, [editedCard, onSave, isNew])
+  }, [editedCard, onSave])
 
   // Update editedCard when navigating to a different card (by cardNumber)
   const prevCardNumber = useRef<string | undefined>((card as any).cardNumber)
@@ -38,7 +42,7 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
     }
   }, [card])
 
-  const handleSave = () => onSave(editedCard)
+  
 
   const updateName = (lang: SupportedLanguages, value: string) => {
     setEditedCard({ ...editedCard, name: { ...editedCard.name, [lang]: value } })
@@ -49,7 +53,57 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
   }
 
   const addVariant = () => {
-    setEditedCard({ ...editedCard, variants: [...(editedCard.variants || []), { type: 'normal' }] })
+    const legacy = (editedCard as any).variants
+    // If variants exist in legacy (object) format, convert supported keys to new variant objects
+    if (legacy && !Array.isArray(legacy) && typeof legacy === 'object') {
+      const newVariants: Array<any> = []
+      for (const [key, value] of Object.entries(legacy) as [string, any][]) {
+        let type = key
+        if (!VARIANT_TYPES.includes(type)) {
+          const kebab = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+          if (VARIANT_TYPES.includes(kebab)) type = kebab
+        }
+
+        if (key === 'firstEdition' || key === 'first_edition' || key === 'first-edition') {
+          if (legacy[key]) newVariants.push({ type: 'normal', stamp: ['1st-edition'] })
+          continue
+        }
+
+        if (!VARIANT_TYPES.includes(type)) {
+          continue
+        }
+
+        if (value === true) {
+          newVariants.push({ type })
+          continue
+        }
+
+        if (typeof value === 'object' && value !== null) {
+          const obj: any = value
+          const v: any = { type }
+          if (obj.thirdParty) v.thirdParty = obj.thirdParty
+          if (obj.stamp) v.stamp = Array.isArray(obj.stamp) ? obj.stamp : [obj.stamp]
+          if (obj.foil) v.foil = obj.foil
+          if (obj.size) v.size = obj.size
+          if (obj.subtype) v.subtype = obj.subtype
+          newVariants.push(v)
+          continue
+        }
+
+        if (value) newVariants.push({ type })
+      }
+
+      const updated = { ...editedCard, variants: [...newVariants, { type: 'normal' }] }
+      setEditedCard(updated)
+      try {
+        onSave(updated, true)
+      } catch (e) {
+        console.error('Error saving after converting variants and adding new one:', e)
+      }
+      return
+    }
+
+    setEditedCard(prev => ({ ...prev, variants: [...(prev.variants || []), { type: 'normal' }] }))
   }
 
   const updateVariant = (index: number, field: string, value: any) => {
@@ -210,7 +264,7 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
             <p className="text-xs text-slate-500">{editedCard.name.en || editedCard.name.fr}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
           {!isNew && onPrevious && (
             <button
               onClick={onPrevious}
@@ -229,15 +283,7 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
               <ChevronRight size={16} />
             </button>
           )}
-          {isNew && (
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-all text-sm shadow-lg shadow-indigo-500/20"
-            >
-              <Save size={16} />
-              Create Card
-            </button>
-          )}
+          {isNew && null}
         </div>
       </header>
 
