@@ -502,10 +502,21 @@ export function generateCardFile(card: Card, originalContent?: string, originalC
         if (index < variants.length - 1) variantsStr += ','
       })
       variantsStr += '\n\t]'
-      const variantsMatch = content.match(/variants:\s*\[[\s\S]*?\n\t\]/)
-      if (variantsMatch) content = content.replace(variantsMatch[0], variantsStr)
+      const variantsMatchArray = content.match(/variants:\s*\[[\s\S]*?\n\t\]/)
+      const variantsMatchObject = content.match(/variants:\s*\{[\s\S]*?\n\t\}/)
+      if (variantsMatchArray) {
+        content = content.replace(variantsMatchArray[0], variantsStr)
+      } else if (variantsMatchObject) {
+        // Replace legacy object-style variants block with array
+        content = content.replace(variantsMatchObject[0], variantsStr)
+      } else {
+        // No existing variants block found; insert before the export
+        content = content.replace(/(\n\}\n\nexport)/, `\n\t${variantsStr}\n$1`)
+      }
     } else {
-      content = content.replace(/,\n\tvariants:\s*\[[\s\S]*?\n\t\]/, '')
+      // Remove any existing variants block (array or object)
+      content = content.replace(/,?\n\tvariants:\s*\[[\s\S]*?\n\t\]/, '')
+      content = content.replace(/,?\n\tvariants:\s*\{[\s\S]*?\n\t\}/, '')
     }
   }
   // Handle thirdParty removal

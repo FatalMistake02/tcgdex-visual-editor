@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, Set, Types, SupportedLanguages } from '../types'
 import { ArrowLeft, Save, Plus, Trash2, Image as ImageIcon, Layout, ChevronRight, ChevronLeft } from 'lucide-react'
 import { VARIANT_TYPES, VARIANT_STAMPS, SUBTYPES, FOIL_TYPES, SIZES } from '../utils/parser'
@@ -6,7 +6,7 @@ import { VARIANT_TYPES, VARIANT_STAMPS, SUBTYPES, FOIL_TYPES, SIZES } from '../u
 interface CardEditorProps {
   card: Card
   set: Set
-  onSave: (card: Card) => void
+  onSave: (card: Card, persist?: boolean) => void
   onBack: () => void
   onNext?: () => void
   onPrevious?: () => void
@@ -17,20 +17,25 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
   const [editedCard, setEditedCard] = useState<Card>({ ...card })
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguages>('en')
 
-  // Autosave with debounce
+  // Autosave with debounce (in-memory only to avoid disk writes that trigger HMR reloads)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (!isNew) {
-        onSave(editedCard)
+        onSave(editedCard, false)
       }
     }, 2000) // Save after 2 seconds of inactivity
 
     return () => clearTimeout(timeoutId)
   }, [editedCard, onSave, isNew])
 
-  // Update editedCard when card prop changes (navigation)
+  // Update editedCard when navigating to a different card (by cardNumber)
+  const prevCardNumber = useRef<string | undefined>((card as any).cardNumber)
   useEffect(() => {
-    setEditedCard({ ...card })
+    const newCardNumber = (card as any).cardNumber
+    if (prevCardNumber.current !== newCardNumber) {
+      setEditedCard({ ...card })
+      prevCardNumber.current = newCardNumber
+    }
   }, [card])
 
   const handleSave = () => onSave(editedCard)
@@ -127,6 +132,70 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
       {children}
     </div>
   )
+
+  const isLegacyVariantsFormat = (v: any): boolean => {
+    if (!v || Array.isArray(v) || typeof v !== 'object') return false
+    const keys = Object.keys(v)
+    if (keys.length === 0) return false
+    // If any key looks like a variant type or known legacy key, consider it legacy
+    const knownLegacyKeys = ['firstEdition', 'first_edition', 'first-edition']
+    return keys.some(k => VARIANT_TYPES.includes(k) || knownLegacyKeys.includes(k) || VARIANT_TYPES.includes(k.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()))
+  }
+
+  const convertLegacyVariants = () => {
+    const legacy = (editedCard as any).variants
+    if (!isLegacyVariantsFormat(legacy)) return
+    const newVariants: Array<any> = []
+    for (const [key, value] of Object.entries(legacy) as [string, any][]) {
+      // normalize key to variant type where possible
+      let type = key
+      if (!VARIANT_TYPES.includes(type)) {
+        const kebab = key.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()
+        if (VARIANT_TYPES.includes(kebab)) type = kebab
+      }
+
+      if (key === 'firstEdition' || key === 'first_edition' || key === 'first-edition') {
+        // map firstEdition -> normal + 1st-edition stamp
+        if (legacy[key]) newVariants.push({ type: 'normal', stamp: ['1st-edition'] })
+        continue
+      }
+
+      if (!VARIANT_TYPES.includes(type)) {
+        // unknown key - skip
+        continue
+      }
+
+      if (value === true) {
+        newVariants.push({ type })
+        continue
+      }
+
+      if (typeof value === 'object' && value !== null) {
+        // merge supported fields from legacy object to new variant
+        const obj: any = value
+        const v: any = { type }
+        if (obj.thirdParty) v.thirdParty = obj.thirdParty
+        if (obj.stamp) v.stamp = Array.isArray(obj.stamp) ? obj.stamp : [obj.stamp]
+        if (obj.foil) v.foil = obj.foil
+        if (obj.size) v.size = obj.size
+        if (obj.subtype) v.subtype = obj.subtype
+        newVariants.push(v)
+        continue
+      }
+
+      // truthy fallback
+      if (value) newVariants.push({ type })
+    }
+
+    const updated = { ...editedCard, variants: newVariants }
+    setEditedCard(updated)
+    try {
+      onSave(updated, true)
+    } catch (e) {
+      // onSave may trigger async save; log failures but keep UI updated
+      console.error('Error saving after converting variants:', e)
+    }
+  }
 
   return (
     <div className="h-screen bg-slate-950 text-slate-200 flex flex-col overflow-hidden">
@@ -597,7 +666,22 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
           </div>
 
           <div className="space-y-4">
-            {toArray(editedCard.variants).map((variant, index) => (
+            {isLegacyVariantsFormat((editedCard as any).variants) && (
+              <section className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
+                <h3 className="text-xs font-bold text-yellow-500 uppercase tracking-widest mb-2">Legacy Variants Detected</h3>
+                <p className="text-xs text-yellow-200 mb-3">This card uses the old variants object format and cannot be edited until converted.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={convertLegacyVariants}
+                    className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-md transition-colors"
+                  >
+                    Convert to new format
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {Array.isArray(editedCard.variants) && toArray(editedCard.variants).map((variant, index) => (
               <div key={index} className="p-4 rounded-xl bg-slate-800 border border-slate-700 shadow-sm hover:border-indigo-500/50 transition-colors group">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight">Variant {index + 1}</span>

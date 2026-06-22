@@ -153,7 +153,7 @@ function App() {
     }
   }
 
-  const handleSaveCard = async (updatedCard: Card) => {
+  const handleSaveCard = async (updatedCard: Card, persist: boolean = true) => {
     if (selectedSet && database && directoryHandle) {
       const cardNumber = (updatedCard as any).cardNumber
       
@@ -178,17 +178,18 @@ function App() {
         }
       }
       
-      // Save to file
-      const serieName = selectedSet.serie.name.en || selectedSet.serie.id
-      const setName = selectedSet.name.en || selectedSet.id
-      const cardFileName = `${cardNumber}.ts`
-      
-      try {
-        const { saveCard } = await import('./utils/fileLoader')
-        await saveCard(directoryHandle, serieName, setName, updatedCard, cardFileName)
-      } catch (err) {
-        console.error('Error saving card:', err)
-        alert('Failed to save card')
+      // Persist to file only when requested. Autosave updates in-memory DB only.
+      if (persist) {
+        const serieName = selectedSet.serie.name.en || selectedSet.serie.id
+        const setName = selectedSet.name.en || selectedSet.id
+        const cardFileName = `${cardNumber}.ts`
+        try {
+          const { saveCard } = await import('./utils/fileLoader')
+          await saveCard(directoryHandle, serieName, setName, updatedCard, cardFileName)
+        } catch (err) {
+          console.error('Error saving card:', err)
+          alert('Failed to save card')
+        }
       }
     }
   }
