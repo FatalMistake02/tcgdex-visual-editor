@@ -115,6 +115,12 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
   const types: Types[] = ['Colorless', 'Darkness', 'Dragon', 'Fairy', 'Fighting', 'Fire', 'Grass', 'Lightning', 'Metal', 'Psychic', 'Water']
   const languages: SupportedLanguages[] = ['en', 'fr', 'es', 'es-mx', 'it', 'pt', 'pt-br', 'pt-pt', 'de', 'nl', 'pl', 'ru', 'ja', 'ko', 'zh-tw', 'id', 'th', 'zh-cn']
 
+  const toArray = <T,>(v?: T[] | Record<string, T> | null): T[] => {
+    if (Array.isArray(v)) return v
+    if (!v) return []
+    try { return Object.values(v as Record<string, T>) }
+    catch { return [] }
+  }
   const FormField = ({ label, children }: { label: string, children: React.ReactNode }) => (
     <div className="flex flex-col gap-1">
       <label className="text-[10px] uppercase tracking-wider font-bold text-slate-400 ml-1">{label}</label>
@@ -407,7 +413,7 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
                     </div>
 
                     <div className="space-y-4">
-                      {editedCard.attacks?.map((attack, index) => (
+                      {toArray(editedCard.attacks).map((attack, index) => (
                         <div key={index} className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 group">
                           <div className="flex items-center justify-between mb-4">
                             <span className="text-xs font-bold text-slate-500 uppercase">Attack #{index + 1}</span>
@@ -485,7 +491,7 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
                     </div>
 
                     <div className="space-y-4">
-                      {editedCard.abilities?.map((ability, index) => (
+                      {toArray(editedCard.abilities).map((ability, index) => (
                         <div key={index} className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 group">
                           <div className="flex items-center justify-between mb-4">
                             <span className="text-xs font-bold text-slate-500 uppercase">Ability #{index + 1}</span>
@@ -591,7 +597,7 @@ export default function CardEditor({ card, set, onSave, onBack, onNext, onPrevio
           </div>
 
           <div className="space-y-4">
-            {editedCard.variants?.map((variant, index) => (
+            {toArray(editedCard.variants).map((variant, index) => (
               <div key={index} className="p-4 rounded-xl bg-slate-800 border border-slate-700 shadow-sm hover:border-indigo-500/50 transition-colors group">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-tight">Variant {index + 1}</span>
