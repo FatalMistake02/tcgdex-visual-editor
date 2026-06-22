@@ -1,0 +1,55 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+pnpm-lock.yaml
+
+# Vite / build
+dist/
+.build/
+out/
+.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Env
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs* 
+*.njsproj
+*.sln
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Misc
+.cache/
+.parcel-cache/
+.storybook/
+
+# Assets
+*.png
+*.jpg
+*.webp
+
+# Ignore local runtime terminals
+.esbuild
+
+# Ignore dev server temp files
+*.local
